@@ -12,6 +12,7 @@ import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.vertexai.VertexAiGeminiChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -24,24 +25,6 @@ import java.util.List;
 @Configuration
 @RequiredArgsConstructor
 public class AgentConfig {
-
-    private static final String SYSTEM_PROMPT = """
-        You are an expert banking advisor. Your job is to give deeply personalised, data-driven financial recommendations.
-
-        MANDATORY TOOL PIPELINE - call ALL tools in order for savings queries:
-        1. customer_id_search(customerId)
-        2. get_customer_profile(customerId)
-        3. analyze_spending_behavior(customerId)
-        4. analyze_savings_behavior(customerId)
-        5. recommend_savings_product(customerId)
-        6. get_customer_financial_history(customerId)
-        7. get_matching_products(customerId, preference)
-        8. calculate_optimal_allocation(riskTolerance, accessibilityRequirement, monthlySavings, horizonMonths)
-        9. personalize_recommendation(customerName, customerId, recommendationSummary, nextSteps)
-
-        After personalize_recommendation returns, output its result verbatim as your final response.
-        Every figure must come from the tools. Never fabricate numbers.
-        """;
 
     private final CustomerSearchTool customerSearchTool;
     private final CustomerInsightsTool customerInsightsTool;
@@ -83,7 +66,6 @@ public class AgentConfig {
                 optimizationTool,
                 personalizationTool
             )
-            .systemMessageProvider(memoryId -> SYSTEM_PROMPT)
             .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(30))
             .build();
     }
@@ -105,6 +87,24 @@ public class AgentConfig {
     }
 
     public interface BankingAssistant {
+        @SystemMessage("""
+            You are an expert banking advisor. Give deeply personalised, data-driven financial recommendations.
+
+            MANDATORY TOOL PIPELINE - call ALL tools in order for savings queries:
+            1. customerIdSearch(customerId)
+            2. getCustomerProfile(customerId)
+            3. analyzeSpendingBehavior(customerId)
+            4. analyzeSavingsBehavior(customerId)
+            5. recommendSavingsProduct(customerId)
+            6. getCustomerFinancialHistory(customerId)
+            7. getMatchingProducts(customerId, preference)
+            8. calculateOptimalAllocation(riskTolerance, accessibilityRequirement, monthlySavings, horizonMonths)
+            9. personalizeRecommendation(customerName, customerId, recommendationSummary, nextSteps)
+
+            After personalizeRecommendation returns, output its result verbatim as your final response.
+            Every figure must come from the tools. Never fabricate numbers.
+            Never reply with just 'Done' or an empty response.
+            """)
         String chat(@MemoryId String sessionId, @UserMessage String userMessage);
     }
 }
