@@ -116,67 +116,53 @@ public class BankAgentService {
         String identity, String profile, String spending, String savings,
         String recommendation, String history, String products, String allocation) {
 
-        return """
-            You are a senior banking advisor AI. Using ONLY the customer data below, write a personalised financial recommendation report.
-
-            USER REQUEST: %s
-
-            === CUSTOMER DATA ===
-            [1] Identity:           %s
-            [2] Profile:            %s
-            [3] Spending Analysis:  %s
-            [4] Savings Analysis:   %s
-            [5] Financial Data (JSON - cash flow, balances, top expenses): %s
-            [6] Financial History:  %s
-            [7] Current Accounts:   %s
-            [8] Allocation Hint:    %s
-
-            === AVAILABLE PRODUCTS CATALOGUE ===
-            %s
-
-            === YOUR TASK ===
-            Write a COMPREHENSIVE report with ALL 6 sections below.
-
-            SECTION 1 — FINANCIAL SNAPSHOT
-            State exact total balance, each account balance and %, liquidity ratio, monthly income, monthly spend, monthly surplus.
-
-            SECTION 2 — TRANSACTIONAL ACTIVITY
-            Analyse top income sources and top expenses. State the monthly surplus exactly (income - spend).
-            Comment on whether the spending pattern is healthy or concerning.
-
-            SECTION 3 — EXPENSE REDUCTION SUGGESTIONS
-            For each discretionary expense in the data, suggest a realistic % reduction.
-            Calculate monthly saving and annual saving for each suggestion.
-            Give a total potential monthly and annual saving figure.
-
-            SECTION 4 — DYNAMIC PRODUCT RECOMMENDATION
-            THIS IS THE MOST IMPORTANT SECTION. Do NOT just list Current/Savings/ISA by default.
-            Instead, reason through the FULL product catalogue above and for EACH product:
-            - State whether it is RECOMMENDED, OPTIONAL, or NOT SUITABLE for this customer
-            - Give a specific reason based on: age, income, monthly surplus, tax situation, risk profile, time horizon
-            - For RECOMMENDED products, state the exact monthly amount to allocate and projected annual interest
-            - Check eligibility criteria carefully (e.g. LISA age limit 18-39, Stocks ISA only for 5+ year horizon)
-            Show your reasoning clearly. The recommendation must be driven by the customer's actual data, not a template.
-
-            SECTION 5 — PROJECTED ANNUAL RETURNS
-            For each RECOMMENDED product, calculate:
-            - Opening balance + new deposits this year = end balance
-            - Interest earned (use the annual rate from the catalogue)
-            Total interest across all recommended products.
-            Grand total balance at year end.
-
-            SECTION 6 — PERSONALISED ACTION PLAN
-            3-5 concrete numbered steps tailored to THIS customer.
-            Each step should include a specific amount, product name, and timing.
-
-            RULES:
-            - Use exact £ figures from the data. Never round to a vague estimate.
-            - Never invent figures not present in the data.
-            - Never use placeholder text like [X] or [amount].
-            - Write in second person ("you", "your") addressing the customer directly.
-            """.formatted(userRequest, identity, profile, spending, savings,
-                recommendation, history, products, allocation,
-                recommendation.contains("availableProducts") ? recommendation : products);
+        // Use StringBuilder instead of String.formatted() — tool results contain
+        // '%' characters (e.g. "3.50%") that would be misinterpreted as format specifiers
+        return new StringBuilder()
+            .append("You are a senior banking advisor AI. Using ONLY the customer data below, write a personalised financial recommendation report.\n\n")
+            .append("USER REQUEST: ").append(userRequest).append("\n\n")
+            .append("=== CUSTOMER DATA ===\n")
+            .append("[1] Identity:           ").append(identity).append("\n")
+            .append("[2] Profile:            ").append(profile).append("\n")
+            .append("[3] Spending Analysis:  ").append(spending).append("\n")
+            .append("[4] Savings Analysis:   ").append(savings).append("\n")
+            .append("[5] Financial Data (JSON - cash flow, balances, top expenses, available products):\n").append(recommendation).append("\n")
+            .append("[6] Financial History:  ").append(history).append("\n")
+            .append("[7] Current Accounts:   ").append(products).append("\n")
+            .append("[8] Allocation Hint:    ").append(allocation).append("\n\n")
+            .append("=== YOUR TASK ===\n")
+            .append("Write a COMPREHENSIVE personalised report with ALL 6 sections below.\n\n")
+            .append("SECTION 1 — FINANCIAL SNAPSHOT\n")
+            .append("State exact total balance, each account balance and %, liquidity ratio, monthly income, monthly spend, monthly surplus.\n\n")
+            .append("SECTION 2 — TRANSACTIONAL ACTIVITY\n")
+            .append("Analyse top income sources and top expenses. State the monthly surplus exactly (income - spend).\n")
+            .append("Comment on whether the spending pattern is healthy or concerning.\n\n")
+            .append("SECTION 3 — EXPENSE REDUCTION SUGGESTIONS\n")
+            .append("For each discretionary expense in the data, suggest a realistic reduction.\n")
+            .append("Calculate monthly saving and annual saving for each suggestion.\n")
+            .append("Give a total potential monthly and annual saving figure.\n\n")
+            .append("SECTION 4 — DYNAMIC PRODUCT RECOMMENDATION\n")
+            .append("THIS IS THE MOST IMPORTANT SECTION. Do NOT just default to Current/Savings/ISA.\n")
+            .append("The availableProducts list is in the JSON under [5]. For EACH product:\n")
+            .append("- State whether it is RECOMMENDED, OPTIONAL, or NOT SUITABLE for this customer\n")
+            .append("- Give a specific reason based on: age, income, monthly surplus, tax situation, risk, time horizon\n")
+            .append("- For RECOMMENDED products, state the exact monthly amount to allocate and projected annual interest\n")
+            .append("- Check eligibility carefully (e.g. LISA is age 18-39 ONLY, Stocks ISA needs 5+ year horizon)\n")
+            .append("Show your reasoning clearly. Let the customer profile drive the selection.\n\n")
+            .append("SECTION 5 — PROJECTED ANNUAL RETURNS\n")
+            .append("For each RECOMMENDED product:\n")
+            .append("- Opening balance + new deposits = end balance\n")
+            .append("- Interest earned using the annual rate from the catalogue\n")
+            .append("Total interest across all recommended products. Grand total balance at year end.\n\n")
+            .append("SECTION 6 — PERSONALISED ACTION PLAN\n")
+            .append("3-5 concrete numbered steps tailored to THIS customer.\n")
+            .append("Each step must include a specific amount, product name, and timing.\n\n")
+            .append("RULES:\n")
+            .append("- Use exact figures from the data. Never round to a vague estimate.\n")
+            .append("- Never invent figures not present in the data.\n")
+            .append("- Never use placeholder text like [X] or [amount].\n")
+            .append("- Write in second person (you/your) addressing the customer directly.\n")
+            .toString();
     }
 
     private String extractCustomerId(String message) {

@@ -465,7 +465,7 @@ public class DatabaseService {
 
     private String getMatchingProductsBigQuery(String customerId, String preference) throws Exception {
         String sql = """
-            SELECT product_type, ROUND(SUM(balance), 2) AS balance,
+            SELECT product_type, ROUND(CAST(SUM(balance) AS FLOAT64), 2) AS balance,
                 CASE
                     WHEN LOWER(product_type) LIKE '%current%' THEN 1
                     WHEN LOWER(product_type) LIKE '%savings%' THEN 2
