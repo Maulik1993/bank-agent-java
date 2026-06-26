@@ -1,6 +1,6 @@
 plugins {
     id 'org.springframework.boot' version '3.2.5'
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'io.spring.dependency-management' version '1.1.6'
     id 'java'
 }
 
@@ -19,6 +19,10 @@ ext {
     langchain4jVersion = '0.36.2'
 }
 
+configurations.configureEach {
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -30,13 +34,13 @@ dependencies {
     implementation "dev.langchain4j:langchain4j:${langchain4jVersion}"
     implementation "dev.langchain4j:langchain4j-vertex-ai-gemini:${langchain4jVersion}"
 
-    // Google Cloud
+    // Google Cloud BigQuery
     implementation 'com.google.cloud:google-cloud-bigquery:2.38.2'
 
     // SQLite
     implementation 'org.xerial:sqlite-jdbc:3.45.1.0'
 
-    // JSON
+    // Jackson (already pulled by spring-web, explicit for clarity)
     implementation 'com.fasterxml.jackson.core:jackson-databind'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
