@@ -456,6 +456,7 @@ public class DatabaseService {
     }
 
     private TableResult runBigQuery(String sql, String customerId) throws Exception {
+        log.debug("BigQuery query for customer={}: {}", customerId, sql);
         try {
             BigQuery bigQuery = BigQueryOptions.newBuilder()
                 .setProjectId(googleCloudProject)
@@ -473,9 +474,13 @@ public class DatabaseService {
             if (job.getStatus().getError() != null) {
                 throw new BigQueryException(0, job.getStatus().getError().toString());
             }
+            log.debug("BigQuery query completed for customer={}", customerId);
             return job.getQueryResults();
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("BigQuery error for customer={}: {} ({})", customerId, ex.getMessage(), ex.getClass().getSimpleName());
             throw ex;
         }
     }
@@ -505,15 +510,48 @@ public class DatabaseService {
     }
 
     private String stringValue(FieldValueList row, String fieldName) {
-        return row.get(fieldName).isNull() ? null : row.get(fieldName).getStringValue();
+        try {
+            com.google.cloud.bigquery.FieldValue fv = row.get(fieldName);
+            return fv.isNull() ? null : fv.getStringValue();
+        } catch (Exception e) {
+            log.debug("stringValue({}) failed: {}", fieldName, e.getMessage());
+            return null;
+        }
     }
 
     private Double doubleValue(FieldValueList row, String fieldName) {
-        return row.get(fieldName).isNull() ? 0.0 : row.get(fieldName).getDoubleValue();
+        try {
+            com.google.cloud.bigquery.FieldValue fv = row.get(fieldName);
+            if (fv.isNull()) return 0.0;
+            // Try double first, fall back to string parsing (handles NUMERIC/BIGNUMERIC types)
+            try {
+                return fv.getDoubleValue();
+            } catch (Exception e) {
+                String s = fv.getStringValue();
+                return (s == null || s.isBlank()) ? 0.0 : Double.parseDouble(s);
+            }
+        } catch (Exception e) {
+            log.debug("doubleValue({}) failed: {}", fieldName, e.getMessage());
+            return 0.0;
+        }
     }
 
     private Long longValue(FieldValueList row, String fieldName) {
-        return row.get(fieldName).isNull() ? null : row.get(fieldName).getLongValue();
+        try {
+            com.google.cloud.bigquery.FieldValue fv = row.get(fieldName);
+            if (fv.isNull()) return null;
+            // Try long first, fall back to string parsing (handles INT64 stored as string)
+            try {
+                return fv.getLongValue();
+            } catch (Exception e) {
+                String s = fv.getStringValue();
+                if (s == null || s.isBlank()) return null;
+                return (long) Double.parseDouble(s); // handles "52.0" style values
+            }
+        } catch (Exception e) {
+            log.debug("longValue({}) failed: {}", fieldName, e.getMessage());
+            return null;
+        }
     }
 
     private String formatPairs(List<String[]> rows) {
