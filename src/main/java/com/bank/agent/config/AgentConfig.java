@@ -57,9 +57,17 @@ public class AgentConfig {
         @Value("${app.google-cloud-project}") String project,
         @Value("${app.google-cloud-location}") String location,
         @Value("${app.gemini-model}") String modelName) {
+
+        // "global" is a virtual location — the actual gRPC endpoint is the non-regional
+        // aiplatform.googleapis.com:443. Regional locations use {location}-aiplatform.googleapis.com.
+        String endpoint = "global".equalsIgnoreCase(location)
+            ? "aiplatform.googleapis.com:443"
+            : location + "-aiplatform.googleapis.com:443";
+
         return VertexAiGeminiChatModel.builder()
             .project(project)
             .location(location)
+            .endpoint(endpoint)
             .modelName(modelName)
             .maxOutputTokens(8192)
             .build();
