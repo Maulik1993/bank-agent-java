@@ -23,7 +23,9 @@ public class ChatController {
         String sessionId = request.getOrDefault("sessionId", UUID.randomUUID().toString());
         String message = request.get("message");
         String response = bankAgentService.chat(sessionId, message);
-        return ResponseEntity.ok(Map.of("sessionId", sessionId, "response", response));
+        // Guard against null — Map.of() throws NullPointerException on null values
+        String safeResponse = (response == null || response.isBlank()) ? "No response generated." : response;
+        return ResponseEntity.ok(Map.of("sessionId", sessionId, "response", safeResponse));
     }
 
     @PostMapping("/sessions")
