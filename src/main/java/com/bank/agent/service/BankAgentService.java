@@ -22,17 +22,22 @@ public class BankAgentService {
         if (message == null || message.isBlank()) {
             return "Please provide a message.";
         }
+        // Prepend system instructions directly — Vertex AI Gemini via LangChain4j 0.36.2
+        // does not reliably apply @SystemMessage or systemMessageProvider.
+        String fullMessage = AgentConfig.SYSTEM_PROMPT + message;
+
         log.info("Chat request: session={} message={}", sessionId, message);
         CURRENT_SESSION_ID.set(sessionId);
         try {
-            String response = assistant.chat(sessionId, message);
-            log.info("Chat response: session={} responseLength={} response={}",
+            String response = assistant.chat(fullMessage);
+            log.info("Chat response: session={} responseLength={} snippet={}",
                 sessionId,
                 response == null ? 0 : response.length(),
-                response == null ? "NULL" : response.substring(0, Math.min(200, response.length())));
-            return response == null ? "No response from agent." : response;
+                response == null ? "NULL" : response.substring(0, Math.min(300, response.length())));
+            return (response == null || response.isBlank()) ? "Agent returned empty response. Check logs." : response;
         } finally {
             CURRENT_SESSION_ID.remove();
         }
     }
 }
+

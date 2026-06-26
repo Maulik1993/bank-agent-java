@@ -11,8 +11,6 @@ import com.bank.agent.tools.RecommendationTool;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.vertexai.VertexAiGeminiChatModel;
 import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.MemoryId;
-import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +23,33 @@ import java.util.List;
 @Configuration
 @RequiredArgsConstructor
 public class AgentConfig {
+
+    public static final String SYSTEM_PROMPT = """
+        You are an expert banking AI advisor with access to tools.
+
+        TASK: When a user asks about savings, investments, or financial planning:
+        Step 1 - Call customerIdSearch with the customer ID.
+        Step 2 - Call getCustomerProfile with the customer ID.
+        Step 3 - Call analyzeSpendingBehavior with the customer ID.
+        Step 4 - Call analyzeSavingsBehavior with the customer ID.
+        Step 5 - Call recommendSavingsProduct with the customer ID.
+        Step 6 - Call getCustomerFinancialHistory with the customer ID.
+        Step 7 - Call getMatchingProducts with the customer ID and "growth".
+        Step 8 - Call calculateOptimalAllocation with appropriate parameters.
+        Step 9 - Call personalizeRecommendation with the customer name, ID, a recommendation summary, and next steps.
+
+        After step 9, write your FINAL ANSWER as a complete, detailed financial report covering:
+        - Financial snapshot (balances, liquidity)
+        - Transactional activity and monthly surplus
+        - Expense reduction suggestions
+        - Recommended product allocation with interest rates
+        - Projected annual savings and interest
+        - Personalised action plan
+
+        IMPORTANT: You MUST produce a detailed written response. Never return empty. Never return just "Done".
+
+        USER REQUEST:
+        """;
 
     private final CustomerSearchTool customerSearchTool;
     private final CustomerInsightsTool customerInsightsTool;
@@ -41,8 +66,6 @@ public class AgentConfig {
         @Value("${app.google-cloud-location}") String location,
         @Value("${app.gemini-model}") String modelName) {
 
-        // LangChain4j 0.36.2 does not support "global" as a location.
-        // Fall back to us-central1 if global is configured (Python/ADK-style).
         String resolvedLocation = "global".equalsIgnoreCase(location) ? "us-central1" : location;
 
         return VertexAiGeminiChatModel.builder()
@@ -66,7 +89,7 @@ public class AgentConfig {
                 optimizationTool,
                 personalizationTool
             )
-            .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(30))
+            .chatMemory(MessageWindowChatMemory.withMaxMessages(50))
             .build();
     }
 
@@ -87,24 +110,6 @@ public class AgentConfig {
     }
 
     public interface BankingAssistant {
-        @SystemMessage("""
-            You are an expert banking advisor. Give deeply personalised, data-driven financial recommendations.
-
-            MANDATORY TOOL PIPELINE - call ALL tools in order for savings queries:
-            1. customerIdSearch(customerId)
-            2. getCustomerProfile(customerId)
-            3. analyzeSpendingBehavior(customerId)
-            4. analyzeSavingsBehavior(customerId)
-            5. recommendSavingsProduct(customerId)
-            6. getCustomerFinancialHistory(customerId)
-            7. getMatchingProducts(customerId, preference)
-            8. calculateOptimalAllocation(riskTolerance, accessibilityRequirement, monthlySavings, horizonMonths)
-            9. personalizeRecommendation(customerName, customerId, recommendationSummary, nextSteps)
-
-            After personalizeRecommendation returns, output its result verbatim as your final response.
-            Every figure must come from the tools. Never fabricate numbers.
-            Never reply with just 'Done' or an empty response.
-            """)
-        String chat(@MemoryId String sessionId, @UserMessage String userMessage);
+        String chat(@UserMessage String fullMessage);
     }
 }
