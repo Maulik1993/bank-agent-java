@@ -84,25 +84,30 @@ public class BankAgentService {
     }
 
     private String callLlmDirect(String prompt, String sessionId) {
-        log.info("Calling LLM directly: session={} promptLength={}", sessionId, prompt.length());
+        log.debug("=== LLM PROMPT (session={}) ===\n{}\n=== END PROMPT ===", sessionId, prompt);
+        log.info("Calling LLM: session={} promptLength={} chars", sessionId, prompt.length());
         try {
             String response = chatModel.generate(prompt);
-            log.info("LLM response: session={} responseLength={}", sessionId,
+            log.info("LLM response received: session={} responseLength={} chars", sessionId,
                 response == null ? 0 : response.length());
+            log.debug("=== LLM RESPONSE (session={}) ===\n{}\n=== END RESPONSE ===", sessionId, response);
             return response == null ? "" : response;
         } catch (Exception e) {
-            log.error("LLM call failed", e);
+            log.error("LLM call failed: {}", e.getMessage(), e);
             return "LLM error: " + e.getMessage();
         }
     }
 
     private String safeCall(String toolName, java.util.function.Supplier<String> fn) {
+        long start = System.currentTimeMillis();
         try {
             String result = fn.get();
-            log.info("Tool {} returned {} chars", toolName, result == null ? 0 : result.length());
+            long ms = System.currentTimeMillis() - start;
+            log.info("[TOOL] {} -> {}ms, {} chars", toolName, ms, result == null ? 0 : result.length());
+            log.debug("[TOOL] {} result:\n{}", toolName, result);
             return result == null ? "" : result;
         } catch (Exception e) {
-            log.warn("Tool {} failed: {}", toolName, e.getMessage());
+            log.warn("[TOOL] {} FAILED after {}ms: {}", toolName, System.currentTimeMillis() - start, e.getMessage());
             return "unavailable";
         }
     }
