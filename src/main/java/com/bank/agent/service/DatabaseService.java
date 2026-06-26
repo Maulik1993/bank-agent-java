@@ -512,7 +512,8 @@ public class DatabaseService {
     private String stringValue(FieldValueList row, String fieldName) {
         try {
             com.google.cloud.bigquery.FieldValue fv = row.get(fieldName);
-            return fv.isNull() ? null : fv.getStringValue();
+            if (fv == null || fv.isNull()) return null;
+            return fv.getStringValue();
         } catch (Exception e) {
             log.debug("stringValue({}) failed: {}", fieldName, e.getMessage());
             return null;
@@ -522,14 +523,11 @@ public class DatabaseService {
     private Double doubleValue(FieldValueList row, String fieldName) {
         try {
             com.google.cloud.bigquery.FieldValue fv = row.get(fieldName);
-            if (fv.isNull()) return 0.0;
-            // Try double first, fall back to string parsing (handles NUMERIC/BIGNUMERIC types)
-            try {
-                return fv.getDoubleValue();
-            } catch (Exception e) {
-                String s = fv.getStringValue();
-                return (s == null || s.isBlank()) ? 0.0 : Double.parseDouble(s);
-            }
+            if (fv == null || fv.isNull()) return 0.0;
+            // Always use getStringValue() — avoids type-conversion exceptions
+            // for NUMERIC, BIGNUMERIC, FLOAT64, INT64 all serialise to plain string
+            String s = fv.getStringValue();
+            return (s == null || s.isBlank()) ? 0.0 : Double.parseDouble(s);
         } catch (Exception e) {
             log.debug("doubleValue({}) failed: {}", fieldName, e.getMessage());
             return 0.0;
@@ -539,15 +537,10 @@ public class DatabaseService {
     private Long longValue(FieldValueList row, String fieldName) {
         try {
             com.google.cloud.bigquery.FieldValue fv = row.get(fieldName);
-            if (fv.isNull()) return null;
-            // Try long first, fall back to string parsing (handles INT64 stored as string)
-            try {
-                return fv.getLongValue();
-            } catch (Exception e) {
-                String s = fv.getStringValue();
-                if (s == null || s.isBlank()) return null;
-                return (long) Double.parseDouble(s); // handles "52.0" style values
-            }
+            if (fv == null || fv.isNull()) return null;
+            String s = fv.getStringValue();
+            if (s == null || s.isBlank()) return null;
+            return (long) Double.parseDouble(s); // handles "52" or "52.0"
         } catch (Exception e) {
             log.debug("longValue({}) failed: {}", fieldName, e.getMessage());
             return null;
