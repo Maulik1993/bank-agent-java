@@ -217,7 +217,8 @@ public class DatabaseService {
                     .build();
             }
         } catch (SQLException ex) {
-            throw new IllegalStateException("SQLite profile query failed", ex);
+            log.error("SQLite profile query failed for {}: {}", customerId, ex.getMessage(), ex);
+            throw new IllegalStateException("SQLite profile query failed: " + ex.getMessage(), ex);
         }
     }
 
@@ -324,32 +325,35 @@ public class DatabaseService {
         String transactions = table("transactions");
         String customers = table("customers");
 
+        // Explicit CAST to FLOAT64 prevents BigQuery returning NUMERIC type,
+        // which causes IllegalArgumentException in the Java SDK during row iteration.
         String sql = """
             WITH acct AS (
                 SELECT customer_id,
-                    ROUND(SUM(balance), 2) AS total_balance,
-                    ROUND(SUM(CASE WHEN LOWER(product_type) LIKE '%savings%' OR LOWER(product_type) LIKE '%isa%' THEN balance ELSE 0 END), 2) AS savings_balance,
-                    ROUND(SUM(CASE WHEN LOWER(product_type) LIKE '%current%' THEN balance ELSE 0 END), 2) AS current_balance
+                    ROUND(CAST(SUM(balance) AS FLOAT64), 2) AS total_balance,
+                    ROUND(CAST(SUM(CASE WHEN LOWER(product_type) LIKE '%%savings%%' OR LOWER(product_type) LIKE '%%isa%%' THEN balance ELSE 0 END) AS FLOAT64), 2) AS savings_balance,
+                    ROUND(CAST(SUM(CASE WHEN LOWER(product_type) LIKE '%%current%%' THEN balance ELSE 0 END) AS FLOAT64), 2) AS current_balance
                 FROM `%s` WHERE customer_id = @customerId GROUP BY customer_id
             ),
             txn AS (
-                SELECT a.customer_id, COUNT(t.account_id) AS transaction_count,
-                    ROUND(SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END), 2) AS inflows,
-                    ROUND(ABS(SUM(CASE WHEN t.amount < 0 THEN t.amount ELSE 0 END)), 2) AS outflows,
-                    ROUND(AVG(CASE WHEN t.amount < 0 THEN ABS(t.amount) END), 2) AS monthly_spend,
-                    ROUND(AVG(CASE WHEN t.amount > 0 THEN t.amount END), 2) AS monthly_income
+                SELECT a.customer_id,
+                    CAST(COUNT(t.account_id) AS FLOAT64) AS transaction_count,
+                    ROUND(CAST(SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS FLOAT64), 2) AS inflows,
+                    ROUND(CAST(ABS(SUM(CASE WHEN t.amount < 0 THEN t.amount ELSE 0 END)) AS FLOAT64), 2) AS outflows,
+                    ROUND(CAST(AVG(CASE WHEN t.amount < 0 THEN ABS(t.amount) END) AS FLOAT64), 2) AS monthly_spend,
+                    ROUND(CAST(AVG(CASE WHEN t.amount > 0 THEN t.amount END) AS FLOAT64), 2) AS monthly_income
                 FROM `%s` a LEFT JOIN `%s` t ON a.account_id = t.account_id
                 WHERE a.customer_id = @customerId GROUP BY a.customer_id
             )
-            SELECT c.customer_id, c.name, c.age,
-                COALESCE(acct.total_balance,0) AS total_balance,
-                COALESCE(acct.savings_balance,0) AS savings_balance,
-                COALESCE(acct.current_balance,0) AS current_balance,
-                COALESCE(txn.transaction_count,0) AS transaction_count,
-                COALESCE(txn.inflows,0) AS inflows,
-                COALESCE(txn.outflows,0) AS outflows,
-                COALESCE(txn.monthly_spend,0) AS monthly_spend,
-                COALESCE(txn.monthly_income,0) AS monthly_income
+            SELECT c.customer_id, c.name, CAST(c.age AS FLOAT64) AS age,
+                CAST(COALESCE(acct.total_balance, 0) AS FLOAT64) AS total_balance,
+                CAST(COALESCE(acct.savings_balance, 0) AS FLOAT64) AS savings_balance,
+                CAST(COALESCE(acct.current_balance, 0) AS FLOAT64) AS current_balance,
+                CAST(COALESCE(txn.transaction_count, 0) AS FLOAT64) AS transaction_count,
+                CAST(COALESCE(txn.inflows, 0) AS FLOAT64) AS inflows,
+                CAST(COALESCE(txn.outflows, 0) AS FLOAT64) AS outflows,
+                CAST(COALESCE(txn.monthly_spend, 0) AS FLOAT64) AS monthly_spend,
+                CAST(COALESCE(txn.monthly_income, 0) AS FLOAT64) AS monthly_income
             FROM `%s` c
             LEFT JOIN acct ON c.customer_id = acct.customer_id
             LEFT JOIN txn ON c.customer_id = txn.customer_id
@@ -437,7 +441,9 @@ public class DatabaseService {
 
     private List<String[]> loadTopTransactionsBigQuery(String customerId, boolean credits) throws Exception {
         String comparator = credits ? "> 0" : "< 0";
-        String amountExpression = credits ? "ROUND(t.amount, 2)" : "ROUND(ABS(t.amount), 2)";
+        String amountExpression = credits
+            ? "ROUND(CAST(t.amount AS FLOAT64), 2)"
+            : "ROUND(CAST(ABS(t.amount) AS FLOAT64), 2)";
         String sql = """
             SELECT COALESCE(t.description, 'Unknown') AS description,
                    %s AS amount
