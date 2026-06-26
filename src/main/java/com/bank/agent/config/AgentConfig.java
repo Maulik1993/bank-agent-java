@@ -58,16 +58,13 @@ public class AgentConfig {
         @Value("${app.google-cloud-location}") String location,
         @Value("${app.gemini-model}") String modelName) {
 
-        // "global" is a virtual location — the actual gRPC endpoint is the non-regional
-        // aiplatform.googleapis.com:443. Regional locations use {location}-aiplatform.googleapis.com.
-        String endpoint = "global".equalsIgnoreCase(location)
-            ? "aiplatform.googleapis.com:443"
-            : location + "-aiplatform.googleapis.com:443";
+        // LangChain4j 0.36.2 does not support "global" as a location.
+        // Fall back to us-central1 if global is configured (Python/ADK-style).
+        String resolvedLocation = "global".equalsIgnoreCase(location) ? "us-central1" : location;
 
         return VertexAiGeminiChatModel.builder()
             .project(project)
-            .location(location)
-            .endpoint(endpoint)
+            .location(resolvedLocation)
             .modelName(modelName)
             .maxOutputTokens(8192)
             .build();
