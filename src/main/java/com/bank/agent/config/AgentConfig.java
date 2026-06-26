@@ -29,7 +29,7 @@ public class AgentConfig {
             .project(project)
             .location(resolvedLocation)
             .modelName(modelName)
-            .maxOutputTokens(8192)
+            .maxOutputTokens(16384)
             .build();
     }
 
