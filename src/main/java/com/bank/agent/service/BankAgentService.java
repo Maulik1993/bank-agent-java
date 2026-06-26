@@ -60,7 +60,7 @@ public class BankAgentService {
             String products      = safeCall("getMatchingProducts",       () -> productMatchingTool.getMatchingProducts(customerId, "growth"));
             String allocation    = safeCall("calculateOptimalAllocation", () -> optimizationTool.calculateOptimalAllocation("moderate", "weekly", 2000.0, 12));
 
-            // Build full context prompt for LLM
+            // Build full context prompt for LLM — pass product catalogue separately
             String contextPrompt = buildContextPrompt(userMessage, customerId,
                 identity, profile, spending, savings, recommendation, history, products, allocation);
 
@@ -117,33 +117,66 @@ public class BankAgentService {
         String recommendation, String history, String products, String allocation) {
 
         return """
-            You are an expert banking AI advisor. Using ONLY the data below, write a comprehensive, personalised financial recommendation report.
+            You are a senior banking advisor AI. Using ONLY the customer data below, write a personalised financial recommendation report.
 
             USER REQUEST: %s
 
-            === TOOL DATA ===
-            [1] Customer Identity: %s
-            [2] Customer Profile: %s
-            [3] Spending Analysis: %s
-            [4] Savings Analysis: %s
-            [5] Savings Product Recommendation (JSON): %s
-            [6] Financial History: %s
-            [7] Matching Products: %s
-            [8] Optimal Allocation: %s
+            === CUSTOMER DATA ===
+            [1] Identity:           %s
+            [2] Profile:            %s
+            [3] Spending Analysis:  %s
+            [4] Savings Analysis:   %s
+            [5] Financial Data (JSON - cash flow, balances, top expenses): %s
+            [6] Financial History:  %s
+            [7] Current Accounts:   %s
+            [8] Allocation Hint:    %s
+
+            === AVAILABLE PRODUCTS CATALOGUE ===
+            %s
 
             === YOUR TASK ===
-            Write a DETAILED report with ALL of these sections:
-            1. Financial Snapshot - total balance, account breakdown, liquidity ratio
-            2. Transactional Activity - income, spending, monthly surplus
-            3. Expense Reduction Suggestions - identify top expenses, suggest cuts
-            4. Recommended Product Allocation - with interest rates and amounts
-            5. Projected Annual Returns - interest earned, year-end balance
-            6. Personalised Action Plan - concrete next steps
+            Write a COMPREHENSIVE report with ALL 6 sections below.
 
-            Use exact figures from the data above. Be specific with amounts and percentages.
-            Do NOT use placeholder text. Write the complete report now.
+            SECTION 1 — FINANCIAL SNAPSHOT
+            State exact total balance, each account balance and %, liquidity ratio, monthly income, monthly spend, monthly surplus.
+
+            SECTION 2 — TRANSACTIONAL ACTIVITY
+            Analyse top income sources and top expenses. State the monthly surplus exactly (income - spend).
+            Comment on whether the spending pattern is healthy or concerning.
+
+            SECTION 3 — EXPENSE REDUCTION SUGGESTIONS
+            For each discretionary expense in the data, suggest a realistic % reduction.
+            Calculate monthly saving and annual saving for each suggestion.
+            Give a total potential monthly and annual saving figure.
+
+            SECTION 4 — DYNAMIC PRODUCT RECOMMENDATION
+            THIS IS THE MOST IMPORTANT SECTION. Do NOT just list Current/Savings/ISA by default.
+            Instead, reason through the FULL product catalogue above and for EACH product:
+            - State whether it is RECOMMENDED, OPTIONAL, or NOT SUITABLE for this customer
+            - Give a specific reason based on: age, income, monthly surplus, tax situation, risk profile, time horizon
+            - For RECOMMENDED products, state the exact monthly amount to allocate and projected annual interest
+            - Check eligibility criteria carefully (e.g. LISA age limit 18-39, Stocks ISA only for 5+ year horizon)
+            Show your reasoning clearly. The recommendation must be driven by the customer's actual data, not a template.
+
+            SECTION 5 — PROJECTED ANNUAL RETURNS
+            For each RECOMMENDED product, calculate:
+            - Opening balance + new deposits this year = end balance
+            - Interest earned (use the annual rate from the catalogue)
+            Total interest across all recommended products.
+            Grand total balance at year end.
+
+            SECTION 6 — PERSONALISED ACTION PLAN
+            3-5 concrete numbered steps tailored to THIS customer.
+            Each step should include a specific amount, product name, and timing.
+
+            RULES:
+            - Use exact £ figures from the data. Never round to a vague estimate.
+            - Never invent figures not present in the data.
+            - Never use placeholder text like [X] or [amount].
+            - Write in second person ("you", "your") addressing the customer directly.
             """.formatted(userRequest, identity, profile, spending, savings,
-                recommendation, history, products, allocation);
+                recommendation, history, products, allocation,
+                recommendation.contains("availableProducts") ? recommendation : products);
     }
 
     private String extractCustomerId(String message) {

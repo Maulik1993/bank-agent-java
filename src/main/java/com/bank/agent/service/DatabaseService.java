@@ -150,10 +150,60 @@ public class DatabaseService {
 
     public List<Map<String, Object>> getAvailableProducts(double savingsRate, double isaRate) {
         List<Map<String, Object>> products = new ArrayList<>();
-        products.add(product("Current Account", 0.0, "instant", false));
-        products.add(product("Savings Account", savingsRate * 100.0, "same-day", false));
-        products.add(product("Cash ISA", isaRate * 100.0, "next-day", true));
+
+        products.add(product("Current Account", 0.0, "instant", false,
+            "No minimum balance. Day-to-day spending and emergency fund only.",
+            "All customers", "Very Low"));
+
+        products.add(product("Easy-Access Savings Account", savingsRate * 100.0, "same-day", false,
+            "Withdraw anytime. Good for short-term goals or building an emergency buffer.",
+            "All customers", "Low"));
+
+        products.add(product("Fixed-Rate Bond (1 Year)", round((savingsRate + 0.005) * 100.0), "locked-1yr", false,
+            "Higher rate; funds locked for 12 months. No withdrawals permitted.",
+            "Customers with surplus they won't need for 12 months", "Low"));
+
+        products.add(product("Fixed-Rate Bond (2 Year)", round((savingsRate + 0.010) * 100.0), "locked-2yr", false,
+            "Best fixed rate. Funds locked for 24 months. Ideal for medium-term goals.",
+            "Customers with stable income and no near-term cash needs", "Low"));
+
+        products.add(product("Cash ISA", isaRate * 100.0, "next-day", true,
+            "Tax-free interest up to £20,000/year. Easy access. Best if near or above Personal Savings Allowance.",
+            "UK tax residents aged 16+. Priority for higher/additional rate taxpayers", "Low"));
+
+        products.add(product("Stocks & Shares ISA", round((isaRate + 0.025) * 100.0), "market-dependent", true,
+            "Invest in funds/shares tax-free. Higher potential return with market risk. £20,000/year allowance.",
+            "Customers aged 18-55 with 5+ year horizon. Not suitable if funds needed within 5 years",
+            "Medium-High"));
+
+        products.add(product("Lifetime ISA (LISA)", 25.0, "locked-until-60-or-first-home", true,
+            "Government 25% bonus on up to £4,000/year. For retirement or first home purchase only. 25% withdrawal penalty for other uses.",
+            "Customers aged 18-39 ONLY. Not eligible if already own a home (for first-home use)",
+            "Medium"));
+
+        products.add(product("Regular Saver Account", round((savingsRate + 0.015) * 100.0), "monthly-withdrawal", false,
+            "Highest non-ISA rate. Must deposit £25-£250 per month consistently. Builds saving discipline.",
+            "Customers with reliable monthly surplus of at least £25", "Low"));
+
         return products;
+    }
+
+    private double round(double v) {
+        return Math.round(v * 100.0) / 100.0;
+    }
+
+    private Map<String, Object> product(String name, double annualRatePct, String liquidity,
+                                        boolean taxWrapper, String description,
+                                        String eligibility, String riskLevel) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("name", name);
+        p.put("annualRatePct", annualRatePct);
+        p.put("liquidity", liquidity);
+        p.put("taxWrapper", taxWrapper);
+        p.put("description", description);
+        p.put("eligibility", eligibility);
+        p.put("riskLevel", riskLevel);
+        return p;
     }
 
     private CustomerProfile loadProfileFromSqlite(String customerId) {
@@ -497,15 +547,6 @@ public class DatabaseService {
 
     private String table(String tableName) {
         return googleCloudProject + "." + bqDataset + "." + tableName;
-    }
-
-    private Map<String, Object> product(String name, double annualRatePct, String liquidity, boolean taxWrapper) {
-        Map<String, Object> product = new LinkedHashMap<>();
-        product.put("name", name);
-        product.put("annualRatePct", annualRatePct);
-        product.put("liquidity", liquidity);
-        product.put("taxWrapper", taxWrapper);
-        return product;
     }
 
     private FieldValueList firstRow(TableResult result) {
