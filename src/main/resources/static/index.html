@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Agent - Java</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2rem; background: #f4f7fb; color: #1f2937; }
+        .card { background: #fff; border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 16px rgba(0,0,0,.08); max-width: 960px; }
+        input, textarea, button { width: 100%; margin-top: .5rem; margin-bottom: 1rem; padding: .75rem; box-sizing: border-box; border-radius: 8px; border: 1px solid #cbd5e1; }
+        textarea { min-height: 140px; }
+        button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .response { white-space: pre-wrap; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem; }
+        .links a { margin-right: 1rem; }
+        .session { font-weight: 700; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Bank Agent - Java</h1>
+    <p class="session">Session ID: <span id="sessionIdLabel"></span></p>
+
+    <label for="sessionId">Session ID</label>
+    <input id="sessionId" type="text">
+
+    <label for="customerId">Customer ID</label>
+    <input id="customerId" type="text" value="C002">
+
+    <label for="message">Chat message</label>
+    <textarea id="message">Please review customer C002 and recommend the best savings allocation.</textarea>
+
+    <button id="submitBtn">Send</button>
+
+    <h2>Response</h2>
+    <div id="response" class="response">No response yet.</div>
+
+    <h2>Observability</h2>
+    <div class="links">
+        <a href="/obs/summary" target="_blank">/obs/summary</a>
+        <a href="/obs/tools" target="_blank">/obs/tools</a>
+        <a href="/obs/tools/sessions" target="_blank">/obs/tools/sessions</a>
+        <a id="sessionObsLink" href="#" target="_blank">/obs/tools/session/{id}</a>
+        <a href="/obs/coverage" target="_blank">/obs/coverage</a>
+    </div>
+</div>
+
+<script>
+    const sessionIdInput = document.getElementById('sessionId');
+    const customerIdInput = document.getElementById('customerId');
+    const sessionIdLabel = document.getElementById('sessionIdLabel');
+    const sessionObsLink = document.getElementById('sessionObsLink');
+    const responseBox = document.getElementById('response');
+
+    function syncSessionUi() {
+        sessionIdLabel.textContent = sessionIdInput.value;
+        sessionObsLink.href = `/obs/tools/session/${sessionIdInput.value}`;
+        sessionObsLink.textContent = `/obs/tools/session/${sessionIdInput.value}`;
+    }
+
+    sessionIdInput.value = crypto.randomUUID();
+    syncSessionUi();
+    sessionIdInput.addEventListener('input', syncSessionUi);
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+        const customerId = customerIdInput.value.trim();
+        const userMessage = document.getElementById('message').value.trim();
+        const message = userMessage.includes(customerId) ? userMessage : `${userMessage}\nCustomer ID: ${customerId}`;
+
+        responseBox.textContent = 'Loading...';
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: sessionIdInput.value,
+                    message
+                })
+            });
+            const data = await res.json();
+            responseBox.textContent = data.response || JSON.stringify(data, null, 2);
+            if (data.sessionId) {
+                sessionIdInput.value = data.sessionId;
+                syncSessionUi();
+            }
+        } catch (err) {
+            responseBox.textContent = `Request failed: ${err.message}`;
+        }
+    });
+</script>
+</body>
+</html>

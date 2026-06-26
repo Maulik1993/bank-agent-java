@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# IDE
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Spring Boot
+spring.log
+
+# Environment / local data
+.env
+bank_data.db
+*.db
